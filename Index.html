@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>WITNESS — Tamper-evident receipts for sensor data</title>
+<meta name="description" content="WITNESS produces tamper-evident receipts for sensor data using only browser-native cryptography. A reference implementation, not a product." />
+<meta name="theme-color" content="#1a1612" />
+
+<!-- Open Graph -->
+<meta property="og:title" content="WITNESS — Tamper-evident receipts for sensor data" />
+<meta property="og:description" content="A reference implementation of citizen-side cryptographic chain-of-custody. Local-first. No accounts. No cloud. Apache-2.0." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://witness.mobi" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    /* Warm parchment palette — easy on the eyes, paper-like */
+    --bg: #faf6ef;
+    --bg-deep: #f3ede2;
+    --bg-card: #fdfaf3;
+    --ink: #1a1612;
+    --ink-soft: #4a3f33;
+    --ink-faint: #8a7a65;
+    --ink-trace: #b8a690;
+    --rule: #e8dfd1;
+    --rule-strong: #d6c9b3;
+    --accent: #8b3a1f;       /* terracotta / signed-wax red */
+    --accent-soft: #b85e3a;
+    --warm-gold: #c89a47;
+    --moss: #5a6a3a;
+    --shadow: 0 1px 3px rgba(26,22,18,0.06), 0 12px 32px rgba(26,22,18,0.04);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1612;
+      --bg-deep: #14110d;
+      --bg-card: #1f1a14;
+      --ink: #f0e8d8;
+      --ink-soft: #c8b89a;
+      --ink-faint: #8a7a65;
+      --ink-trace: #5a4f42;
+      --rule: #2a2419;
+      --rule-strong: #3a3225;
+      --accent: #d97050;
+      --accent-soft: #e89070;
+      --warm-gold: #d4a85a;
+      --moss: #8a9a5a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.2);
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 400;
+    font-size: 18px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    background-image:
+      radial-gradient(at 90% 5%, rgba(200,154,71,0.06) 0%, transparent 40%),
+      radial-gradient(at 10% 90%, rgba(139,58,31,0.04) 0%, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  ::selection { background: var(--accent); color: var(--bg); }
+
+  /* Subtle paper grain */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+    opacity: 0.04;
+    pointer-events: none;
+    z-index: 1;
+    mix-blend-mode: multiply;
+  }
+
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 28px;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* ===== Top bar ===== */
+  .topbar {
+    padding: 28px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+  }
+  .topbar .mark {
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+  .topbar nav { display: flex; gap: 22px; }
+  .topbar nav a {
+    color: var(--ink-faint);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .topbar nav a:hover { color: var(--accent); }
+
+  /* ===== Hero ===== */
+  .hero {
+    padding: 110px 0 90px;
+    position: relative;
+  }
+  .hero .small {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 28px;
+  }
+  .hero h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: clamp(48px, 7vw, 88px);
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin-bottom: 36px;
+    font-variation-settings: 'opsz' 144;
+  }
+  .hero h1 em {
+    font-style: italic;
+    font-weight: 300;
+    color: var(--accent);
+  }
+  .hero .lede {
+    font-size: 22px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 560px;
+    font-weight: 300;
+    margin-bottom: 48px;
+  }
+  .hero .lede em {
+    color: var(--ink);
+    font-style: italic;
+  }
+
+  /* Sigil mark */
+  .sigil {
+    position: absolute;
+    top: 56px;
+    right: 0;
+    width: 88px;
+    height: 88px;
+    opacity: 0.85;
+  }
+
+  /* ===== Buttons ===== */
+  .actions {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 22px;
+    border-radius: 4px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .btn-primary:hover {
+    background: var(--accent-soft);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(139,58,31,0.25);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink-soft);
+    border-color: var(--rule-strong);
+  }
+  .btn-ghost:hover {
+    color: var(--ink);
+    border-color: var(--ink-soft);
+  }
+  .btn .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.7;
+  }
+
+  /* ===== Section ===== */
+  section { padding: 72px 0; position: relative; }
+
+  .section-mark {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .section-mark::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
+
+  h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: clamp(34px, 4.5vw, 52px);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin-bottom: 28px;
+    font-variation-settings: 'opsz' 144;
+  }
+  h2 em { font-style: italic; color: var(--accent); font-weight: 300; }
+
+  h3 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 22px;
+    color: var(--ink);
+    margin-bottom: 14px;
+    margin-top: 36px;
+  }
+
+  p { margin-bottom: 20px; color: var(--ink-soft); }
+  p strong { color: var(--ink); font-weight: 500; }
+
+  /* ===== The honest paragraph (homepage hero block) ===== */
+  .honest {
+    margin-top: 36px;
+    padding: 32px 36px;
+    background: var(--bg-card);
+    border-left: 3px solid var(--accent);
+    border-radius: 2px;
+    box-shadow: var(--shadow);
+    font-size: 17px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+  .honest p { margin-bottom: 14px; }
+  .honest p:last-child { margin-bottom: 0; }
+  .honest strong {
+    font-style: normal;
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* ===== Install steps ===== */
+  .install {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin-top: 24px;
+    border-top: 1px solid var(--rule);
+  }
+  .step {
+    padding: 24px 0;
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 20px;
+    align-items: baseline;
+  }
+  .step .n {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+  }
+  .step h4 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 19px;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .step p {
+    font-size: 16px;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+  .step code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: var(--bg-deep);
+    padding: 2px 8px;
+    border-radius: 3px;
+    color: var(--ink);
+  }
+
+  /* ===== How it works ===== */
+  .crypto {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .crypto-row {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 28px;
+    padding: 22px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: baseline;
+  }
+  .crypto-row:last-child { border-bottom: none; }
+  .crypto-row .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+  }
+  .crypto-row .desc {
+    font-family: 'Fraunces', serif;
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+  }
+  .crypto-row .desc code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--bg-deep);
+    padding: 1px 6px;
+    border-radius: 2px;
+  }
+
+  /* ===== Two-column doesn't / does ===== */
+  .does-doesnt {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    margin-top: 28px;
+  }
+  @media (max-width: 640px) { .does-doesnt { grid-template-columns: 1fr; } }
+  .col {
+    padding: 28px 24px;
+    background: var(--bg-card);
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+  }
+  .col.does { border-top: 3px solid var(--moss); }
+  .col.doesnt { border-top: 3px solid var(--accent); }
+  .col h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+  .col.does h4 { color: var(--moss); }
+  .col.doesnt h4 { color: var(--accent); }
+  .col ul { list-style: none; }
+  .col li {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .col li:last-child { border-bottom: none; }
+
+  /* ===== Threat models / cards ===== */
+  .threats {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .threat {
+    background: var(--bg-card);
+    border-radius: 4px;
+    padding: 26px 28px;
+    box-shadow: var(--shadow);
+    border-left: 2px solid var(--rule-strong);
+    transition: border-color 0.2s;
+  }
+  .threat:hover { border-left-color: var(--accent); }
+  .threat .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 8px;
+  }
+  .threat h4 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 19px;
+    color: var(--ink);
+    margin-bottom: 10px;
+  }
+  .threat p {
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  /* ===== CIGaW ===== */
+  .cigaw-quote {
+    margin: 28px 0;
+    padding: 28px 32px;
+    background: var(--bg-card);
+    border-radius: 4px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--ink);
+    box-shadow: var(--shadow);
+    position: relative;
+  }
+  .cigaw-quote::before {
+    content: "“";
+    position: absolute;
+    top: -10px;
+    left: 18px;
+    font-size: 60px;
+    color: var(--accent);
+    font-family: 'Fraunces', serif;
+    line-height: 1;
+  }
+  .cigaw-quote em {
+    display: block;
+    margin-top: 14px;
+    font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+
+  /* ===== Roadmap ===== */
+  .roadmap {
+    margin-top: 24px;
+    display: grid;
+    gap: 0;
+    border-top: 1px solid var(--rule);
+  }
+  .road-item {
+    display: grid;
+    grid-template-columns: 80px 100px 1fr;
+    gap: 20px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: baseline;
+  }
+  @media (max-width: 600px) {
+    .road-item { grid-template-columns: 60px 80px 1fr; gap: 12px; }
+  }
+  .road-item .pri {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+  }
+  .road-item .status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 3px 8px;
+    border-radius: 2px;
+    color: var(--ink-faint);
+    background: var(--bg-deep);
+    text-align: center;
+    height: fit-content;
+  }
+  .road-item .status.active { color: var(--moss); }
+  .road-item .status.open { color: var(--warm-gold); }
+  .road-item .content h4 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 17px;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .road-item .content p {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  /* ===== Quote / thinking section ===== */
+  .thinking {
+    margin-top: 24px;
+    padding: 36px 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  .thinking p {
+    font-family: 'Fraunces', serif;
+    font-size: 19px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+    font-style: italic;
+    margin-bottom: 20px;
+  }
+  .thinking p strong {
+    color: var(--ink);
+    font-weight: 500;
+    font-style: normal;
+  }
+  .thinking p:last-child { margin-bottom: 0; }
+
+  /* ===== Footer ===== */
+  footer {
+    padding: 80px 0 60px;
+    border-top: 1px solid var(--rule);
+    margin-top: 80px;
+  }
+  .foot-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr;
+    gap: 32px;
+  }
+  @media (max-width: 640px) { .foot-grid { grid-template-columns: 1fr; gap: 24px; } }
+  .foot-grid h5 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 14px;
+  }
+  .foot-grid a {
+    display: block;
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    padding: 4px 0;
+    transition: color 0.2s;
+  }
+  .foot-grid a:hover { color: var(--accent); }
+  .foot-grid p {
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+  .colophon {
+    margin-top: 56px;
+    padding-top: 28px;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+    letter-spacing: 0.05em;
+  }
+  .colophon .sig {
+    color: var(--ink-soft);
+  }
+
+  /* Small fade-in */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .hero h1, .hero .lede, .hero .actions, .honest {
+    animation: rise 0.7s ease-out backwards;
+  }
+  .hero .lede { animation-delay: 0.1s; }
+  .hero .actions { animation-delay: 0.2s; }
+  .honest { animation-delay: 0.3s; }
+
+</style>
+</head>
+<body>
+
+<!-- ===== Top Bar ===== -->
+<header class="wrap">
+  <div class="topbar">
+    <div class="mark">WITNESS · v0.1</div>
+    <nav>
+      <a href="#install">Install</a>
+      <a href="#how">How</a>
+      <a href="#threats">Threats</a>
+      <a href="#roadmap">Roadmap</a>
+      <a href="#source">Source</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== Hero ===== -->
+<section class="wrap hero">
+  <!-- Sigil: wax seal mark, hand-drawn feel -->
+  <svg class="sigil" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <circle cx="50" cy="50" r="44" stroke="var(--accent)" stroke-width="1" opacity="0.5"/>
+    <circle cx="50" cy="50" r="36" stroke="var(--accent)" stroke-width="0.5" opacity="0.4"/>
+    <path d="M 50 22 L 50 50 L 70 64" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+    <circle cx="50" cy="50" r="2.5" fill="var(--accent)"/>
+    <text x="50" y="92" text-anchor="middle" font-family="JetBrains Mono" font-size="6" fill="var(--ink-faint)" letter-spacing="1">SEALED · T+0</text>
+  </svg>
+
+  <div class="small">A reference implementation · not a product</div>
+  <h1>
+    A receipt for the<br/>
+    <em>moment it happened.</em>
+  </h1>
+  <p class="lede">
+    WITNESS turns any phone into a cryptographic notary. It captures sensor data, hashes it, signs it with a hardware-bound key, and produces a receipt that <em>cannot be quietly altered later</em> — by you, by us, or by anyone else.
+  </p>
+
+  <div class="actions">
+    <a href="#install" class="btn btn-primary">
+      <span class="dot"></span>
+      Install the PWA
+    </a>
+    <a href="#how" class="btn btn-ghost">Read how it works</a>
+  </div>
+
+  <div class="honest">
+    <p>WITNESS demonstrates that any modern phone can produce tamper-evident receipts for sensor data using only browser-native cryptography.</p>
+    <p><strong>It is a reference implementation, not a product.</strong> It proves that a captured bitstream existed at a moment in time and was signed by a specific device. It does not prove that what was captured is true, complete, or contextually honest.</p>
+    <p>Read the threat models before deploying this for any consequential use.</p>
+  </div>
+</section>
+
+<!-- ===== Install ===== -->
+<section class="wrap" id="install">
+  <div class="section-mark">§ 01 · Install</div>
+  <h2>Three steps. No app store. <em>No account.</em></h2>
+  <p style="max-width: 580px;">WITNESS is a Progressive Web App. A single HTML file, ~38 KB, zero dependencies, zero cloud calls. It runs in your phone's browser and installs to your home screen like a native app.</p>
+
+  <div class="install">
+    <div class="step">
+      <div class="n">i.</div>
+      <div>
+        <h4>Open in your phone's browser</h4>
+        <p>Visit <code>witness.mobi/app</code> in Safari (iOS) or Chrome / Firefox (Android). No download. No login.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">ii.</div>
+      <div>
+        <h4>Add to home screen</h4>
+        <p>iOS: tap Share → "Add to Home Screen." Android: tap the menu → "Install app." WITNESS now lives on your phone like any other app — except it never asked for your email.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">iii.</div>
+      <div>
+        <h4>Capture &amp; seal</h4>
+        <p>Open WITNESS. Tap to capture. The device hashes the data, signs it, and produces a QR receipt. Share the receipt however you like. The original file never leaves your phone unless you choose.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== How it works ===== -->
+<section class="wrap" id="how">
+  <div class="section-mark">§ 02 · Cryptography</div>
+  <h2>What's happening <em>under the seal.</em></h2>
+  <p style="max-width: 600px;">No black boxes. Every primitive is browser-native, every step is local. Here's the full pipeline.</p>
+
+  <div class="crypto">
+    <div class="crypto-row">
+      <div class="label">Triple Hash</div>
+      <div class="desc">Captured bytes are passed through three independent hash algorithms: <code>SHA-256</code>, <code>SHA3-256</code>, and <code>BLAKE2b-256</code>. A composite hash is computed over all three. Breaking one algorithm doesn't compromise the receipt.</div>
+    </div>
+    <div class="crypto-row">
+      <div class="label">Signature</div>
+      <div class="desc">The composite hash is signed using <code>ECDSA P-256</code>, with a hardware-backed key generated once on first launch. The key is <em>non-extractable</em> — it lives in the Secure Enclave or StrongBox and can never leave the device.</div>
+    </div>
+    <div class="crypto-row">
+      <div class="label">Ledger</div>
+      <div class="desc">Each receipt is appended to a local <code>IndexedDB</code> ledger, chain-linked by <code>sha256(prev_hash ‖ entry_body)</code>. Tampering with any prior entry breaks every subsequent link. Verifiable offline, on-device.</div>
+    </div>
+    <div class="crypto-row">
+      <div class="label">Receipt</div>
+      <div class="desc">A QR code encodes <code>{composite_hash, signature, public_key, timestamp, mime}</code>. Anyone with the QR and the original file can verify the receipt without contacting any server. Ever.</div>
+    </div>
+    <div class="crypto-row">
+      <div class="label">Witnesses</div>
+      <div class="desc">Optional: nearby phones running WITNESS can co-sign your receipt over Bluetooth, attesting to physical co-presence at the moment of capture. They never see what was captured — only that you captured something.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== What it does / doesn't do ===== -->
+<section class="wrap">
+  <div class="section-mark">§ 03 · Honest scope</div>
+  <h2>What WITNESS <em>does</em> and doesn't.</h2>
+  <p style="max-width: 580px;">The most important thing this tool can tell you is what it isn't doing.</p>
+
+  <div class="does-doesnt">
+    <div class="col does">
+      <h4>· What it does</h4>
+      <ul>
+        <li>Proves a specific bitstream existed at a specific moment</li>
+        <li>Proves which device signed the capture</li>
+        <li>Makes silent post-hoc editing computationally detectable</li>
+        <li>Works fully offline, with no servers and no accounts</li>
+        <li>Lets nearby phones co-attest to physical co-presence</li>
+      </ul>
+    </div>
+    <div class="col doesnt">
+      <h4>· What it does not</h4>
+      <ul>
+        <li>Prove what was captured is true</li>
+        <li>Prove the recording is complete or unedited in framing</li>
+        <li>Replace eyewitness testimony, legal counsel, or journalism</li>
+        <li>Carry automatic legal weight in any jurisdiction</li>
+        <li>Protect against staged or selectively recorded events</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Threats ===== -->
+<section class="wrap" id="threats">
+  <div class="section-mark">§ 04 · Threat models</div>
+  <h2>Who might be on <em>either side</em> of this.</h2>
+  <p style="max-width: 600px;">Every accountability tool in history has been turned around. WITNESS will be no exception. The point is to be honest about that from the start, not to pretend otherwise.</p>
+
+  <div class="threats">
+    <div class="threat">
+      <div class="tag">Threat A · The intended users</div>
+      <h4>Citizens, journalists, victims, whistleblowers</h4>
+      <p>People who need to document something that powerful parties may later deny. WITNESS narrows the gap between what happened and what can be proven happened.</p>
+    </div>
+    <div class="threat">
+      <div class="tag">Threat B · The selective capturer</div>
+      <h4>Anyone who hits record thirty seconds in</h4>
+      <p>Cryptography certifies what was captured and says nothing about what wasn't. A perfectly signed record of the second half is still a partial record. CIGaW peer witnesses are the partial defense.</p>
+    </div>
+    <div class="threat">
+      <div class="tag">Threat C · The bad-faith actor</div>
+      <h4>Abusers, fraudsters, weaponizers of evidence</h4>
+      <p>The same tool that protects victims will be used by people who claim to be victims and aren't. The protocol cannot adjudicate motive. That is the job of courts and journalists, not software.</p>
+    </div>
+    <div class="threat">
+      <div class="tag">Threat D · The dissident</div>
+      <h4>Sources under authoritarian observation</h4>
+      <p>A persistent device key is a forensic fingerprint. For a whistleblower, that can be a death sentence. The "burn-after-use" ephemeral key option in v0.2 is for these users.</p>
+    </div>
+    <div class="threat">
+      <div class="tag">Threat E · The collective</div>
+      <h4>Epistemic fragmentation</h4>
+      <p>A million personal cryptographic ledgers, each individually verifiable, collectively un-adjudicatable. WITNESS is a small contribution to the same fragmentation it was meant to resist. We hold that openly.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CIGaW ===== -->
+<section class="wrap">
+  <div class="section-mark">§ 05 · CIGaW</div>
+  <h2>Can I get a <em>witness?</em></h2>
+  <p style="max-width: 600px;">Cryptographic chain-of-custody, alone, proves only integrity. A signed bitstream is still just a bitstream. CIGaW adds a second epistemic layer: <strong>independent humans, with independent devices, attesting to their own physical co-presence.</strong></p>
+
+  <div class="cigaw-quote">
+    At time T, my device was within Bluetooth range of a device producing this composite hash. I am willing to sign that I was here.
+    <em>The entire epistemic claim of a CIGaW co-signature.</em>
+  </div>
+
+  <p>The witness never sees what was captured. They cannot be subpoenaed to testify about content. They are bound to <strong>the moment</strong>, not to <strong>the footage</strong>. The cryptography just makes their attestation un-deniable after the fact.</p>
+  <p style="margin-top: 18px;">CIGaW is closer to what witness testimony has always been — multiple parties, each with their own perspective and their own credibility, willing to stand behind <em>"I was there."</em> The protocol just makes that testimony durable.</p>
+</section>
+
+<!-- ===== Roadmap ===== -->
+<section class="wrap" id="roadmap">
+  <div class="section-mark">§ 06 · Roadmap</div>
+  <h2>What's next. What's <em>deliberately not.</em></h2>
+  <p style="max-width: 600px;">v0.1 is a single-device tamper-evidence tool. v0.2 turns it into a networked attestation system where receipts gain integrity from multiple independent sources. The order matters.</p>
+
+  <div class="roadmap">
+    <div class="road-item">
+      <div class="pri">P1 · v0.2</div>
+      <div class="status active">Active</div>
+      <div class="content">
+        <h4>CIGaW — Bluetooth peer co-signing</h4>
+        <p>Nearby WITNESS users attest to physical co-presence at the moment of capture. The structural defense against the selective-capture critique.</p>
+      </div>
+    </div>
+    <div class="road-item">
+      <div class="pri">P2 · v0.2</div>
+      <div class="status active">Active</div>
+      <div class="content">
+        <h4>OpenTimestamps anchoring</h4>
+        <p>Free, batched anchoring of receipt hashes to the Bitcoin blockchain via public OTS calendar servers. No wallet, no token, no gas. The boring correct answer.</p>
+      </div>
+    </div>
+    <div class="road-item">
+      <div class="pri">P3 · v0.2</div>
+      <div class="status active">Active</div>
+      <div class="content">
+        <h4>Burn-after-use ephemeral keys</h4>
+        <p>A clearly-labeled toggle: "Single-use key (recommended for sources)." Each capture generates a fresh key, signs once, then destroys the key. For whistleblowers whose identity must remain uncorrelatable.</p>
+      </div>
+    </div>
+    <div class="road-item">
+      <div class="pri">P4 · TBD</div>
+      <div class="status open">Open</div>
+      <div class="content">
+        <h4>CCTV broadcast attestation</h4>
+        <p>The most consequential design question in the project's future. Read the open deliberation before forming an opinion. Not in v0.2. Possibly never.</p>
+      </div>
+    </div>
+    <div class="road-item">
+      <div class="pri">— · NEVER</div>
+      <div class="status">Excluded</div>
+      <div class="content">
+        <h4>Cloud sync · accounts · tokens · NFTs</h4>
+        <p>All violate either the local-first principle or the threat model. Not coming. Not later. Not as a premium feature. Not at all.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Thinking ===== -->
+<section class="wrap">
+  <div class="section-mark">§ 07 · The thinking</div>
+  <h2>Why this exists, <em>and what it costs.</em></h2>
+
+  <div class="thinking">
+    <p>Strip the cryptography away and WITNESS is a device that makes moments un-deniable. A citizen, a journalist, a protester, a domestic abuse victim, a whistleblower — anyone — can capture sensor data and produce a receipt that says: <strong>this exact bitstream existed at this exact moment, signed by this exact device, and no one — including me — can quietly alter it later.</strong></p>
+    <p>This is not a hashing utility. It is a portable epistemic anchor.</p>
+    <p>Hashes prove integrity, not truth. A perfectly signed, chain-anchored video of a staged event is still a staged event. Most people — including most judges and jurors — will read "cryptographically verified" as "true." We are handing out a technology that looks like a truth machine but is actually a tamper-evidence machine. <strong>That gap is where the harm lives.</strong></p>
+    <p>The most consequential decisions left aren't technical. They are about framing, defaults, and what we deliberately refuse to build.</p>
+  </div>
+</section>
+
+<!-- ===== Source ===== -->
+<section class="wrap" id="source">
+  <div class="section-mark">§ 08 · Source &amp; license</div>
+  <h2>Fork it. Audit it. <em>Harden it for your own threat model.</em></h2>
+  <p style="max-width: 620px;">WITNESS is published under <strong>Apache-2.0</strong> with the explicit patent grant — important for a tool that may end up cited in court filings. The reference implementation is distributed through GitHub, with signed releases via sigstore. The URL is the integrity check.</p>
+
+  <div class="actions" style="margin-top: 32px;">
+    <a href="#" class="btn btn-ghost">
+      <span class="dot"></span>
+      View on GitHub
+    </a>
+    <a href="#" class="btn btn-ghost">Read the full docs</a>
+    <a href="#" class="btn btn-ghost">Verify release signature</a>
+  </div>
+</section>
+
+<!-- ===== Footer ===== -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <h5>· About</h5>
+        <p>WITNESS is a reference implementation by <strong style="color: var(--ink);">Patrick</strong> at <strong style="color: var(--ink);">Individuation LLC</strong>. Published openly because the thinking matters as much as the code.</p>
+      </div>
+      <div>
+        <h5>· Documentation</h5>
+        <a href="#how">How it works</a>
+        <a href="#threats">Threat models</a>
+        <a href="#">CIGaW protocol spec</a>
+        <a href="#">CCTV open question</a>
+        <a href="#">v0.2 roadmap</a>
+      </div>
+      <div>
+        <h5>· Distribution</h5>
+        <a href="#">GitHub repository</a>
+        <a href="#">IPFS pin</a>
+        <a href="#">Signed releases</a>
+        <a href="#">Apache-2.0 license</a>
+      </div>
+    </div>
+
+    <div class="colophon">
+      <div class="sig">© Individuation LLC · 2026</div>
+      <div>Built local-first · No tracking · No cookies · No analytics</div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
