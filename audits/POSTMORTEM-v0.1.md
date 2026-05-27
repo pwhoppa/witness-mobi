@@ -1,0 +1,2 @@
+The SHA3-256 implementation failed the abc known-answer test, producing 450de04d… instead of 3a985da7…. The ledger chain used hex-string prevHash in ledgerAdd and decoded-bytes prevHash in ledgerVerify, causing every entry past sequence 0 to fail self-verification. No standalone verifier shipped, so the end-to-end "anyone can verify offline" claim was unfulfilled in v0.1.
+How it was found. Two independent deep-scan audits commissioned by the author, May 18 2026. Reports archived in this directory.
