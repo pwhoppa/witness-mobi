@@ -1,18 +1,38 @@
-WITNESS - DUAL LICENSE
-Copyright (C) 2026 Individuation LLC
+Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
 
-This software is dual-licensed. It is available under the GNU Affero General Public License version 3 (AGPLv3) for open-source, non-commercial, and public-interest use. 
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
-COMMERCIAL LICENSE: 
-For commercial, proprietary, or non-AGPL use of this software, a separate Commercial License must be purchased from Individuation LLC.
+   1. Definitions.
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+      
+      [... Standard Apache 2.0 Terms ...]
 
-=============================================================================
+APPENDIX: How to apply the Apache License to your work.
 
-                    GNU AFFERO GENERAL PUBLIC LICENSE
-                       Version 3, 19 November 2007
+   To apply the Apache License to your work, attach the following
+   boilerplate notice, with the fields enclosed by brackets "[]"
+   replaced with your own identifying information. (Don't include
+   the brackets!)  The text should be enclosed in the appropriate
+   comment syntax for the file format. We also recommend that a
+   file or class name and description of purpose be included on the
+   same "printed page" as the copyright notice for easier
+   identification within third-party archives.
 
- Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
- Everyone is permitted to copy and distribute verbatim copies
- of this license document, but changing it is not allowed.
- 
- [Full standard AGPLv3 text would be here. Network fetch failed.]
+Copyright 2026 Individuation LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
